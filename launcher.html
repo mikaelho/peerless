@@ -70,17 +70,15 @@
         function startAsHub() {
             if (!setPlayerName()) return;
 
-            const gameIDDisplayArea = document.getElementById("game_id_display_area");
+            const gameIDDisplay = document.getElementById("showID");
             groupIDNumber = Math.round(Math.random() * 10000).toString().padStart(4, '0');
-            gameIDDisplayArea.innerHTML = "Group ID: " + groupIDNumber;
-            gameIDDisplayArea.style.display = "inherit";
+            gameIDDisplay.innerHTML = groupIDNumber;
             groupID = makeID("group", groupIDNumber, false);
 
             peer = new Peer(groupID);
             peer.on("error", console.log);
             peer.on("connection", firstConnection);
-
-            console.log("Hub started with group ID " + groupID);
+            peer.on("open", (conn) => {showSection("connectedPeersSection")});
         }
 
         function actualConnection(foobar) {
@@ -126,7 +124,7 @@
         </p>
     </div>
     <div id="connectedPeersSection"  style="display: none;">
-
+        Group ID <span id="showID"></span>
     </div>
     <div id="hubActionSection" style="display: none;">
 
