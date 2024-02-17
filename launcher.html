@@ -1,0 +1,113 @@
+<html>
+<head>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script>
+        let playerName;
+        let myID;
+        let groupIDNumber;
+        let groupID;
+
+        let peer;
+        let conn;
+
+        function setPlayerName() {
+            playerName = document.getElementById("player_name").value.trim();
+            if (playerName === "") {
+                alert("Fill name");
+                return false
+            }
+            myID = makeID("player", playerName, true);
+
+            return true;
+        }
+
+        function setGroupID() {
+            groupIDNumber = document.getElementById("group_id").value.trim();
+
+            if (groupIDNumber === "") {
+                alert("Fill group number");
+                return false;
+            }
+
+            groupID = makeID("group", groupIDNumber, false);
+
+            return true;
+        }
+
+        function makeID(type, value, addRandom) {
+            const noAccentValue = value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            const noSpacesValue = noAccentValue.replace(/ /g, '');
+            const lowerCaseValue = noSpacesValue.toLowerCase();
+            let randomNumber = "";
+            if (addRandom) {
+                randomNumber = Math.round(Math.random() * 10000).toString().padStart(4, '0') + "-";
+            }
+            return "soukantahti-" + type + "-id-" + randomNumber + lowerCaseValue;
+        }
+
+        function firstConnection(conn) {
+            console.log("Connection");
+            const peerID = conn.peer;
+            console.log("Received peer connection from " + peerID);
+        }
+
+        function startAsHub() {
+            if (!setPlayerName()) return;
+
+            const gameIDDisplayArea = document.getElementById("game_id_display_area");
+            groupIDNumber = Math.round(Math.random() * 10000).toString().padStart(4, '0');
+            gameIDDisplayArea.innerHTML = "Group ID: " + groupIDNumber;
+            gameIDDisplayArea.style.display = "inherit";
+            groupID = makeID("group", groupIDNumber, false);
+
+            peer = new Peer(groupID);
+            peer.on("error", console.log);
+            peer.on("connection", firstConnection);
+
+            console.log("Hub started with group ID " + groupID);
+        }
+
+        function actualConnection(foobar) {
+            console.log("Really open");
+        }
+
+        function joinHub() {
+            if (!setPlayerName()) return;
+
+            const gameIDInputArea = document.getElementById("game_id_input_area");
+
+            if (gameIDInputArea.style.display === "none") {
+                gameIDInputArea.style.display = "inherit";
+            } else {
+                if (!setGroupID()) return;
+
+                peer = new Peer(myID);
+                peer.on("error", console.log);
+                peer.on("open", (id) => {
+                    console.log("Client will connect to group ID " + groupID);
+                    conn = peer.connect(groupID);
+                    conn.on("open", actualConnection);
+                    conn.on("error", console.log);
+                });
+            }
+        }
+    </script>
+</head>
+<body>
+    <form id="startup">
+        <p>
+        Player name <input id="player_name"/>
+        </p>
+        <p id="game_id_input_area" style="display: none;">
+        Group ID <input id="group_id"/>
+        </p>
+        <p id="game_id_display_area" style="display: none;">
+            No ID
+        </p>
+        <p>
+            <button type="button" onclick="startAsHub();">Start group</button>
+            <button type="button" onclick="joinHub();">Join group</button>
+        </p>
+    </form>
+</body>
+</html>
