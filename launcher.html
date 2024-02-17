@@ -16,7 +16,6 @@
             "connectedPeersSection",
             "hubActionSection",
             "peerActionSection",
-            "",
         ]
 
         function setPlayerName() {
@@ -56,10 +55,8 @@
 
         function showSection(sectionIDToShow) {
             sections.forEach((sectionIDToHide) => {
-                console.log("Hiding " + sectionIDToHide);
                 document.getElementById(sectionIDToHide).style.display = "none";
             });
-            console.log("Showing " + sectionIDToShow);
             document.getElementById(sectionIDToShow).style.display = "inherit";
         }
 
