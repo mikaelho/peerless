@@ -134,17 +134,19 @@
         const handlers = {
             connectToPeers: function (data) {
                 console.log("connectToPeers");
-                data.forEach((peerData) => {
-                    if (!connections[peerData.peer]) {
-                        conn = peer.connect(peerData.peer, {metadata: {name: playerName}});
-                        conn.on("open", () => {
-                            connections[peerData.peer] = conn;
-                            conn.metadata.name = peerData.name;
-                            refreshConnectionList();
-                        });
-                    }
-                });
+                data.forEach((peerData) => { openConnectionToPeer(peerData.peer, peerData.name); });
             },
+        }
+
+        function openConnectionToPeer(peerID, peerName) {
+            if (!connections[peerID]) {
+                const conn = peer.connect(peerID, {metadata: {name: playerName}});
+                conn.on("open", () => {
+                    connections[peerID] = conn;
+                    conn.metadata.name = peerName;
+                    refreshConnectionList();
+                });
+            }
         }
 
         function messageReceived(message) {
