@@ -8,10 +8,15 @@
         let groupID;
 
         let peer;
-        let conn;
+        const connections = {};
+
+        // Only hub uses these
+        let groupPeer;
+        const groupPeerIDs = [];
 
         const sections = [
             "nameEntrySection",
+            "nameDisplaySection",
             "groupEntrySection",
             "connectedPeersSection",
             "hubActionSection",
@@ -24,6 +29,8 @@
                 alert("Fill name");
                 return false
             }
+            document.getElementById("showName").innerHTML = playerName;
+
             myID = makeID("player", playerName, true);
 
             return true;
@@ -53,17 +60,13 @@
             return "soukantahti-" + type + "-id-" + randomNumber + lowerCaseValue;
         }
 
-        function showSection(sectionIDToShow) {
+        function showSection(sectionIDsToShow) {
             sections.forEach((sectionIDToHide) => {
                 document.getElementById(sectionIDToHide).style.display = "none";
             });
-            document.getElementById(sectionIDToShow).style.display = "inherit";
-        }
-
-        function firstConnection(conn) {
-            console.log("Connection");
-            const peerID = conn.peer;
-            console.log("Received peer connection from " + peerID);
+            sectionIDsToShow.forEach((sectionIDToShow) => {
+                document.getElementById(sectionIDToShow).style.display = "inherit";
+            });
         }
 
         function startAsHub() {
@@ -74,59 +77,127 @@
             gameIDDisplay.innerHTML = groupIDNumber;
             groupID = makeID("group", groupIDNumber, false);
 
-            peer = new Peer(groupID);
-            peer.on("error", console.log);
-            peer.on("connection", firstConnection);
-            peer.on("open", (conn) => {showSection("connectedPeersSection")});
+            createMe();
+
+            groupPeerIDs.push({peer: myID, name: playerName});
+
+            groupPeer = new Peer(groupID);
+            groupPeer.on("error", console.log);
+            groupPeer.on("connection", connectionToHub);
+            groupPeer.on("open", (conn) => {showSection(["nameDisplaySection", "connectedPeersSection", "hubActionSection"])});
         }
 
-        function actualConnection(foobar) {
-            console.log("Really open");
+        function createMe() {
+            peer = new Peer(myID);
+            peer.on("error", console.log);
+            peer.on("connection", connectionToPeer);
         }
 
         function startAsPeer() {
             if (!setPlayerName()) return;
 
-            showSection("groupEntrySection");
+            showSection(["nameDisplaySection", "groupEntrySection"]);
         }
 
         function joinHub() {
             if (!setGroupID()) return;
 
-            peer = new Peer(myID);
-            peer.on("error", console.log);
+            document.getElementById("showID").innerHTML = groupIDNumber;
+            showSection(["nameDisplaySection", "connectedPeersSection"]);
+
+            createMe();
+
             peer.on("open", (id) => {
-                console.log("Client will connect to group ID " + groupID);
-                conn = peer.connect(groupID);
-                conn.on("open", actualConnection);
+                console.log("Client connecting to group ID " + groupID);
+                conn = peer.connect(groupID, {metadata: {name: playerName}});
                 conn.on("error", console.log);
+                conn.on("open", () => {conn.on("data", messageReceived)});
             });
+        }
+
+        function connectionToHub(newConnection) {
+            console.log("connectionToHub");
+            newConnection.on("open", () => {
+                console.log("open");
+                newConnection.send({action: "connectToPeers", data: groupPeerIDs});
+                groupPeerIDs.push({peer: newConnection.peer, name: newConnection.metadata.name});
+            });
+        }
+
+        function connectionToPeer(newConnection) {
+            console.log("connectionToPeer");
+            connections[newConnection.peer] = newConnection;
+            newConnection.on("data", messageReceived);
+            refreshConnectionList();
+        }
+
+        const handlers = {
+            connectToPeers: function (data) {
+                console.log("connectToPeers");
+                data.forEach((peerData) => {
+                    if (!connections[peerData.peer]) {
+                        conn = peer.connect(peerData.peer, {metadata: {name: playerName}});
+                        conn.on("open", () => {
+                            connections[peerData.peer] = conn;
+                            conn.metadata.name = peerData.name;
+                            refreshConnectionList();
+                        });
+                    }
+                });
+            },
+        }
+
+        function messageReceived(message) {
+            console.log("messageReceived");
+            console.log(message);
+            handlers[message.action](message.data);
+        }
+
+        function refreshConnectionList() {
+            console.log("refreshConnectionList");
+            console.log(connections);
+            let peerIDList = ""
+            Object.keys(connections).forEach((peerID) => {
+                peerIDList += connections[peerID].metadata.name + " ";
+            });
+            document.getElementById("peerList").innerHTML = peerIDList;
         }
     </script>
 </head>
 <body>
     <div id="nameEntrySection">
         <p>
-            Player name <input id="player_name"/>
+            Player name: <input id="player_name"/>
         </p>
         <p>
             <button type="button" onclick="startAsHub();">START</button>
             <button type="button" onclick="startAsPeer();">JOIN</button>
         </p>
     </div>
+    <div id="nameDisplaySection" style="display: none;">
+        Player name: <span id="showName"></span>
+    </div>
     <div id="groupEntrySection"  style="display: none;">
         <p>
-            Group ID <input id="group_id"/>
+            Group ID: <input id="group_id"/>
         </p>
         <p>
             <button type="button" onclick="joinHub();">JOIN</button>
         </p>
     </div>
-    <div id="connectedPeersSection"  style="display: none;">
-        Group ID <span id="showID"></span>
+    <div id="connectedPeersSection" style="display: none;">
+        <p>
+            Group ID: <span id="showID"></span>
+        </p>
+        <p>
+            Connected peers: <span id="peerList"></span>
+        </p>
     </div>
     <div id="hubActionSection" style="display: none;">
-
+        <p>
+            <button type="button" onclick="allReadyToStart();">START</button>
+            <button type="button" onclick="cancel();">CANCEL</button>
+        </p>
     </div>
     <div id="peerActionSection"  style="display: none;">
 
