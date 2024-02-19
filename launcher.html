@@ -143,16 +143,21 @@
                 connections[newConnection.peer] = newConnection;
                 newConnection.on("data", messageReceived.bind(newConnection));
                 refreshConnectionList();
+                newConnection.send({action: "setPeerName", data: {peer: myID, name: playerName}});
             });
         }
 
         const handlers = {
             connectToPeer: function (connection, message) {
                 console.log("connectToPeer");
-                openConnectionToPeer(message.data.peer, message.data.name);
+                openConnectionToPeer(message.peer, message.name);
             },
             chat: function (connection, message) {
                 displayMessage(message);
+            },
+            setPeerName: function(connection, message) {
+                connections[message.peer].metadata.name = message.name;
+                refreshConnectionList();
             },
         }
 
@@ -161,6 +166,7 @@
             connection.on("open", () => {
                 connections[peerID] = connection;
                 connection.metadata.name = peerName;
+                connection.on("data", messageReceived.bind(connection));
                 refreshConnectionList();
             });
         }
@@ -181,12 +187,8 @@
 
         function refreshConnectionList() {
             console.log("refreshConnectionList");
-            console.log(connections);
-            let peerIDList = ""
-            Object.keys(connections).forEach((peerID) => {
-                peerIDList += connections[peerID].metadata.name + " ";
-            });
-            document.getElementById("peerList").innerHTML = peerIDList;
+            const peerNames = Object.values(connections).map((connection) => connection.metadata.name).join(", ");
+            document.getElementById("peerList").innerHTML = peerNames;
         }
 
         function sendChat() {
@@ -203,6 +205,7 @@
         function displayMessage(message, onRight) {
             const messageElement = document.createElement("div");
             messageElement.style.width = "100%";
+            messageElement.style.paddingTop = "10px";
             if (onRight) {
                 messageElement.style.textAlign = "right";
             }
@@ -223,7 +226,7 @@
 <body>
     <div id="nameEntrySection">
         <p>
-            Your display name: <input id="player_name"/>
+            Name: <input id="player_name"/>
         </p>
         <p>
             <button type="button" onclick="startAsHub();">START</button>
