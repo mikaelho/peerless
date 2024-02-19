@@ -2,17 +2,20 @@
 <head>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script>
-        let playerName;
-        let myID;
-        let groupIDNumber;
-        let groupID;
+        let playerName;  // Display name
+        let myID;  // My peer ID, construed from the name
+        let peer;  // My peer object
 
-        let peer;
+        // Connections to and names of all the other peers, keyed by peer ID
         const connections = {};
+        const names = {};
+
+        let groupIDNumber;  // Four-digit number
+        let groupID;  // Hub peer ID, construed from the four-digit-number
 
         // Only hub uses these
-        let groupPeer;
-        const groupPeerIDs = [];
+        let groupPeer;  // Hub peer object, could be discarded after all peers connected
+        const groupPeerIDs = [];  // All the IDs of the peers in group
 
         const sections = [
             "nameEntrySection",
@@ -21,6 +24,8 @@
             "connectedPeersSection",
             "hubActionSection",
             "peerActionSection",
+            "chatHistorySection",
+            "chatEntrySection",
         ]
 
         function setPlayerName() {
@@ -84,7 +89,9 @@
             groupPeer = new Peer(groupID);
             groupPeer.on("error", console.log);
             groupPeer.on("connection", connectionToHub);
-            groupPeer.on("open", (conn) => {showSection(["nameDisplaySection", "connectedPeersSection", "hubActionSection"])});
+            groupPeer.on("open", (conn) => {showSection([
+                "nameDisplaySection", "connectedPeersSection", "chatHistorySection", "chatEntrySection"
+            ])});
         }
 
         function createMe() {
@@ -109,16 +116,19 @@
 
             peer.on("open", (id) => {
                 console.log("Client connecting to group ID " + groupID);
-                conn = peer.connect(groupID, {metadata: {name: playerName}});
+                const conn = peer.connect(groupID, {metadata: {name: playerName}});
                 conn.on("error", console.log);
-                conn.on("open", () => {conn.on("data", messageReceived)});
+                conn.on("open", () => {
+                    console.log("OPEN, setting data handler");
+                    conn.on("data", messageReceived.bind(conn));
+                });
+                showSection(["nameDisplaySection", "connectedPeersSection", "chatHistorySection", "chatEntrySection"]);
             });
         }
 
         function connectionToHub(newConnection) {
             console.log("connectionToHub");
             newConnection.on("open", () => {
-                console.log("open");
                 newConnection.send({action: "connectToPeers", data: groupPeerIDs});
                 groupPeerIDs.push({peer: newConnection.peer, name: newConnection.metadata.name});
             });
@@ -126,15 +136,21 @@
 
         function connectionToPeer(newConnection) {
             console.log("connectionToPeer");
-            connections[newConnection.peer] = newConnection;
-            newConnection.on("data", messageReceived);
-            refreshConnectionList();
+            newConnection.on("open", () => {
+                connections[newConnection.peer] = newConnection;
+                newConnection.on("data", messageReceived.bind(newConnection));
+                refreshConnectionList();
+            });
         }
 
         const handlers = {
-            connectToPeers: function (data) {
+            connectToPeers: function (connection, message) {
                 console.log("connectToPeers");
-                data.forEach((peerData) => { openConnectionToPeer(peerData.peer, peerData.name); });
+                connection.close();
+                message.forEach((peerData) => { openConnectionToPeer(peerData.peer, peerData.name); });
+            },
+            chat: function (connection, message) {
+                displayMessage(message);
             },
         }
 
@@ -149,10 +165,18 @@
             }
         }
 
+        function broadcast(message) {
+            Object.values(connections).forEach((connection) => {
+                console.log("Broadcasting to " + connection.peer + ": " + message);
+                console.log("Connection is " + connection.open);
+                connection.send(message);
+            });
+        }
+
         function messageReceived(message) {
             console.log("messageReceived");
             console.log(message);
-            handlers[message.action](message.data);
+            handlers[message.action](this, message.data);
         }
 
         function refreshConnectionList() {
@@ -164,12 +188,36 @@
             });
             document.getElementById("peerList").innerHTML = peerIDList;
         }
+
+        function sendChat() {
+            const inputElement = document.getElementById("chatInput");
+            const chatMessage = inputElement.value.trim();
+            inputElement.value = "";
+            if (!chatMessage) return;
+
+            const messageHTML = `<b>${playerName}</b><br/>${chatMessage}`;
+            displayMessage(messageHTML, true);
+            broadcast({action: "chat", data: messageHTML});
+        }
+
+        function displayMessage(message, onRight) {
+            const messageElement = document.createElement("div");
+            messageElement.style.width = "100%";
+            if (onRight) {
+                messageElement.style.textAlign = "right";
+            }
+
+            messageElement.innerHTML = message;
+            document.getElementById("chatHistory").appendChild(messageElement);
+            const scroller = document.getElementById("chatHistorySection");
+            scroller.scrollTop = scroller.scrollHeight;
+        }
     </script>
 </head>
 <body>
     <div id="nameEntrySection">
         <p>
-            Player name: <input id="player_name"/>
+            Your display name: <input id="player_name"/>
         </p>
         <p>
             <button type="button" onclick="startAsHub();">START</button>
@@ -177,11 +225,11 @@
         </p>
     </div>
     <div id="nameDisplaySection" style="display: none;">
-        Player name: <span id="showName"></span>
+        Name: <span id="showName"></span>
     </div>
     <div id="groupEntrySection"  style="display: none;">
         <p>
-            Group ID: <input id="group_id"/>
+            Group ID: <input id="group_id" type="number"/>
         </p>
         <p>
             <button type="button" onclick="joinHub();">JOIN</button>
@@ -192,7 +240,7 @@
             Group ID: <span id="showID"></span>
         </p>
         <p>
-            Connected peers: <span id="peerList"></span>
+            Connected to: <span id="peerList"></span>
         </p>
     </div>
     <div id="hubActionSection" style="display: none;">
@@ -203,6 +251,14 @@
     </div>
     <div id="peerActionSection"  style="display: none;">
 
+    </div>
+    <div id="chatHistorySection"
+         style="display: none; width: 100%; height: 200px; overflow-y: scroll; padding: 10px;">
+        <div id="chatHistory" style="width: 100%; height: 100%;"></div>
+    </div>
+    <div id="chatEntrySection" style="display: none; width: 100%;">
+        <input id="chatInput" type="text" type="text" style="width: 100%;" />
+        <button style="float: right;" onclick="sendChat();">SEND</button>
     </div>
 </body>
 </html>
