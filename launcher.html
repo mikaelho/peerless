@@ -124,6 +124,7 @@
                     console.log("OPEN, setting data handler");
                     connections[groupID] = connection;
                     connection.on("data", messageReceived.bind(connection));
+                    connection.on("close", connectionClosed.bind(connection, groupID));
                 });
                 showSection(["nameDisplaySection", "connectedPeersSection", "chatHistorySection", "chatEntrySection"]);
             });
@@ -142,6 +143,7 @@
                 }
                 connections[newConnection.peer] = newConnection;
                 newConnection.on("data", messageReceived.bind(newConnection));
+                newConnection.on("close", connectionClosed.bind(newConnection, newConnection.peer));
                 refreshConnectionList();
                 newConnection.send({action: "setPeerName", data: {peer: myID, name: playerName}});
             });
@@ -167,8 +169,15 @@
                 connections[peerID] = connection;
                 connection.metadata.name = peerName;
                 connection.on("data", messageReceived.bind(connection));
+                connection.on("close", connectionClosed.bind(connection, peerID));
                 refreshConnectionList();
             });
+        }
+
+        function connectionClosed(peerID) {
+            console.log("connectionClosed");
+            delete connections[peerID];
+            refreshConnectionList();
         }
 
         function broadcast(message) {
@@ -245,7 +254,7 @@
         </p>
     </div>
     <div id="connectedPeersSection" style="display: none;">
-        <p>
+        <p style="display: none">
             Group ID: <span id="showID"></span>
         </p>
         <p>
@@ -265,7 +274,7 @@
          style="display: none; width: 100%; height: 200px; overflow-y: scroll; ">
         <div id="chatHistory" style="width: 100%; height: 100%;"></div>
     </div>
-    <div id="chatEntrySection" style="display: none; width: 100%;">
+    <div id="chatEntrySection" style="display: none; width: 100%; margin-top: 20px;">
         <input id="chatInput" type="text" type="text" style="width: 100%;" onkeydown="maybe(event, sendChat);"/>
         <button style="float: right;" onclick="sendChat();">SEND</button>
     </div>
