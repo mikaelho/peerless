@@ -23,12 +23,12 @@
                 var radius = e.accuracy;
 
                 L.marker(e.latlng).addTo(map);
-                L.circle(e.latlng, 2, {fillOpacity: 0.1}).addTo(map);
+                L.circle(e.latlng, 3.5, {fillOpacity: 0.1}).addTo(map);
             }
 
             map.on('locationfound', onLocationFound);
 
-            map.locate({setView: true, maxZoom: 16, watch: true});
+            map.locate({setView: true, watch: true});
         }
     </script>
 </head>
