@@ -23,7 +23,7 @@
                 var radius = e.accuracy;
 
                 L.marker(e.latlng).addTo(map);
-                L.circle(e.latlng, radius).addTo(map);
+                L.circle(e.latlng, 2, {fillOpacity: 0.1}).addTo(map);
             }
 
             map.on('locationfound', onLocationFound);
