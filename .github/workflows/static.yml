@@ -36,6 +36,7 @@ jobs:
           mkdir -p ./dist
           cp launcher.html ./dist/index.html
           cp soukantahti.html ./dist/map.html
+          cp maps ./dist/maps
       - name: Setup Pages
         uses: actions/configure-pages@v4
       - name: Upload artifact
