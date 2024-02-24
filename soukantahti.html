@@ -12,6 +12,28 @@
         html, body, #map {height: 100%; width: 100vw;}
     </style>
     <script>
+        const [STAR, RED, GREEN, YELLOW, ROBBER, CLOVER] = ["star", "red", "green", "yellow", "robber", "clover"]
+        const TYPES = [STAR, RED, GREEN, YELLOW, ROBBER, CLOVER]
+        const EMOJIS = ["💎", "🔴", "🟢", "🟡", "🤠", "🍀"]
+        const SHARES = [1, 2, 3, 4, 3, 5];
+        const TOTAL = 30;
+
+        function shuffleMap(spots) {
+            const spotsInitialized = {};
+            [...Array(TYPES.length).keys()].forEach(index => {
+                [...Array(SHARES[index]).keys()].forEach(() => {
+                    const spot = removeAndReturnRandomSpot(spots);
+                    spotsInitialized[spot] = {type: TYPES[index], emoji: EMOJIS[index]};
+                });
+            });
+
+            return spotsInitialized;
+        }
+
+        function removeAndReturnRandomSpot(spots) {
+            return spots.splice(Math.random() * spots.length | 0, 1)[0];
+        }
+
         function initialize() {
             var map = L.map('map').fitWorld();
             L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -29,6 +51,8 @@
             map.on('locationfound', onLocationFound);
 
             map.locate({setView: true, maxZoom: 17, watch: true});
+
+            console.log(shuffleMap([...Array(30).keys()]));
         }
     </script>
 </head>
