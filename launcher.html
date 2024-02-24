@@ -2,14 +2,13 @@
 <head>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script>
-        let playerName;  // Display name
+        let name;  // Display name
         let myID;  // My peer ID, construed from the name, or from the group ID for the hub
         let peer;  // My peer object
         let iAmHub = false;
 
         // Connections to and names of all the other peers, keyed by peer ID
         const connections = {};
-        const names = {};
 
         let groupIDNumber = "1234";  // Four-digit number, fixed for now
 
@@ -27,15 +26,15 @@
             "chatEntrySection",
         ]
 
-        function setPlayerName() {
-            playerName = document.getElementById("player_name").value.trim();
-            if (playerName === "") {
+        function setName() {
+            name = document.getElementById("name").value.trim();
+            if (name === "") {
                 alert("Fill name");
                 return false
             }
-            document.getElementById("showName").innerHTML = playerName;
+            document.getElementById("showName").innerHTML = name;
 
-            myID = makeID("player", playerName, true);
+            myID = makeID("peer", name, true);
 
             return true;
         }
@@ -75,7 +74,7 @@
         }
 
         function startAsHub() {
-            if (!setPlayerName()) return;
+            if (!setName()) return;
 
             const gameIDDisplay = document.getElementById("showID");
             // Use fixed group number for now
@@ -85,7 +84,7 @@
             myID = makeID("group", groupIDNumber, false);
             createMe();
 
-            groupPeerIDs.push({peer: myID, name: playerName});
+            groupPeerIDs.push({peer: myID, name: name});
             iAmHub = true;
 
             peer.on("open", (conn) => {showSection([
@@ -100,7 +99,7 @@
         }
 
         function startAsPeer() {
-            if (!setPlayerName()) return;
+            if (!setName()) return;
 
             // Skip asking for the hub number
             // showSection(["nameDisplaySection", "groupEntrySection"]);
@@ -118,7 +117,7 @@
 
             peer.on("open", (id) => {
                 console.log("Client connecting to group ID " + groupID);
-                const connection = peer.connect(groupID, {metadata: {name: playerName}});
+                const connection = peer.connect(groupID, {metadata: {name: name}});
                 connection.on("error", console.log);
                 connection.on("open", () => {
                     console.log("OPEN, setting data handler");
@@ -145,7 +144,7 @@
                 newConnection.on("data", messageReceived.bind(newConnection));
                 newConnection.on("close", connectionClosed.bind(newConnection, newConnection.peer));
                 refreshConnectionList();
-                newConnection.send({action: "setPeerName", data: {peer: myID, name: playerName}});
+                newConnection.send({action: "setPeerName", data: {peer: myID, name: name}});
             });
         }
 
@@ -164,7 +163,7 @@
         }
 
         function openConnectionToPeer(peerID, peerName) {
-            const connection = peer.connect(peerID, {metadata: {name: playerName}});
+            const connection = peer.connect(peerID, {metadata: {name: name}});
             connection.on("open", () => {
                 connections[peerID] = connection;
                 connection.metadata.name = peerName;
@@ -206,7 +205,7 @@
             inputElement.value = "";
             if (!chatMessage) return;
 
-            const messageHTML = `<b>${playerName}</b><br/>${chatMessage}`;
+            const messageHTML = `<b>${name}</b><br/>${chatMessage}`;
             displayMessage(messageHTML, true);
             broadcast({action: "chat", data: messageHTML});
         }
@@ -235,7 +234,7 @@
 <body>
     <div id="nameEntrySection">
         <p>
-            Name: <input id="player_name"/>
+            Name: <input id="name"/>
         </p>
         <p>
             <button type="button" onclick="startAsHub();">START</button>
