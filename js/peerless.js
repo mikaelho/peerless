@@ -13,67 +13,70 @@ const Peerless = {
     connections: {},  // Connections to and names of all the other peers, keyed by peer ID
 
     setValuesFromLocalStorage: () => {
-        this.name = window.localStorage.getItem("peerless_name");
-        this.peerID = window.localStorage.getItem("peerless_peerID");
+        Peerless.name = window.localStorage.getItem("peerless_name") || "";
+        Peerless.peerID = window.localStorage.getItem("peerless_peerID");
     },
 
     start: (mode, name) => {
-        this.mode = mode;
-        this.name = name;
+        Peerless.mode = mode;
+        Peerless.name = name;
         window.localStorage.setItem("peerless_name", name);
 
-        if (!this.peerID) {
-            this.peerID = PeerlessUtil.makeID();
+        if (!Peerless.peerID) {
+            Peerless.peerID = PeerlessUtil.makeID();
         }
-        this.peer = new Peer(this.peerID);  // , {debug: 3});
-        this.peer.on("error", console.log);
-        this.peer.on("connection", this.onConnection);
+        console.log("I am " + Peerless.peerID);
+        Peerless.peer = new Peer(Peerless.peerID);  // , {debug: 3});
+        Peerless.peer.on("error", console.log);
+        Peerless.peer.on("connection", Peerless.onConnection);
 
         switch (mode) {
             case PeerlessMode.PEER:
                 // Regular peers start by connecting to the prime
                 const groupID = new URLSearchParams(window.location.search).get("groupID");
-                const connection = peer.connect(groupID, {metadata: {name: this.name}});
+                console.log(Peerless.mode + " " + Peerless.name + " connecting to " + groupID);
+                const connection = Peerless.peer.connect(groupID, {metadata: {name: Peerless.name}});
                 connection.on("error", console.log);
-                connection.on("open", () => { this.setUpConnection(connection); });
+                connection.on("open", () => { Peerless.setUpConnection(connection); });
                 break;
             case PeerlessMode.STARTER:
             case PeerlessMode.HUB:
                 // Prime just publishes the URL to be shared with the peers
-                const groupURL = PeerlessUtil.getGroupURL(this.peerID);
+                const groupURL = PeerlessUtil.getGroupURL(Peerless.peerID);
                 navigator.clipboard.writeText(groupURL);
                 return groupURL;
         }
     },
 
     onConnection: (connection) => {
-        if (this.mode === PeerlessMode.STARTER) {
+        console.log(Peerless.mode + " " + Peerless.name + " received connection from " + connection.metadata.name);
+        if (Peerless.mode === PeerlessMode.STARTER) {
             // Get everyone connected to everyone
-            this.broadcast("connectToPeer", {peerID: connection.peer, name: connection.metadata.name});
+            Peerless.broadcast("connectToPeer", {peerID: connection.peer, name: connection.metadata.name});
         }
-        this.setUpConnection(connection);
+        Peerless.setUpConnection(connection);
         // Make sure the caller knows the user's name corresponding to the connection, for display purposes
-        this.send(connection, "setPeerName", {peerID: this.peerID, name: this.name});
+        Peerless.send(connection, "setPeerName", {peerID: Peerless.peerID, name: Peerless.name});
     },
 
     connectToPeer: (connection, peerData) => {
-        const peerConnection = peer.connect(peerData.peerID, {metadata: {name: this.name}});
+        const peerConnection = Peerless.peer.connect(peerData.peerID, {metadata: {name: Peerless.name}});
         peerConnection.on("open", () => {
             peerConnection.metadata.name = peerData.name;
-            this.setUpConnection(peerConnection);
+            Peerless.setUpConnection(peerConnection);
         });
     },
 
     setPeerName: (connection, peerData) => {
-        this.connections[peerData.peerID].metadata.name = peerData.name;
-        this.connectionsChanged();
+        Peerless.connections[peerData.peerID].metadata.name = peerData.name;
+        Peerless.connectionsChanged();
     },
 
     setUpConnection: (connection) => {
-        this.connections[connection.peer] = connection;
-        connection.on("data", this.messageReceived.bind(this, connection));
-        connection.on("close", this.connectionClosed.bind(this, connection));
-        this.connectionsChanged();
+        Peerless.connections[connection.peer] = connection;
+        connection.on("data", Peerless.messageReceived.bind(Peerless, connection));
+        connection.on("close", Peerless.connectionClosed.bind(Peerless, connection));
+        Peerless.connectionsChanged();
     },
 
     send: (connection, action, data) => {
@@ -81,21 +84,21 @@ const Peerless = {
     },
 
     broadcast: (action, data) => {
-        Object.values(this.connections).forEach(connection => {this.send(connection, action, data)});
+        Object.values(Peerless.connections).forEach(connection => {Peerless.send(connection, action, data)});
     },
 
     messageReceived: (connection, message) => {
-        this[message.action](connection, message.data);
+        Peerless[message.action](connection, message.data);
     },
 
     connectionClosed: (connection) => {
-        delete this.connections[connection.peer];
-        this.connectionsChanged();
+        delete Peerless.connections[connection.peer];
+        Peerless.connectionsChanged();
     },
 
     connectionsChanged: () => {
         const peerNameList = Object.values(connections).map((connection) => connection.metadata.name);
-        this.onConnectionsChanged(peerNameList);
+        Peerless.onConnectionsChanged(peerNameList);
     },
 
     onConnectionsChanged: (peerNameList) => {  // To be overwritten by the outside logic
@@ -106,7 +109,7 @@ const Peerless = {
 
 const PeerlessUtil = {
     makeID: () => {
-        const randomNumber = Math.round(Math.random() * Math.pow(10, 20)).toString() + "-";
+        const randomNumber = Math.round(Math.random() * Math.pow(10, 20)).toString();
         return "peerless-" + randomNumber;
     },
 
